@@ -25,6 +25,18 @@
     - Select IDE Tools - Flash Size: "1M (no SPIFFS)"
   ====================================================*/
 
+/*
+NIKOS EDITS
+Tasmota uses mqtt_publish to publish most messages. mqtt_publish calls mqtt_publish_sec to publish and log the message.
+mqtt_publish_topic_P is used to decide topic automatically depending on the "prefix" attr
+
+topic is completely overridden in mqtt_publish and replaced with MQTT_TOPIC_ATTRIBUTES from config so all
+data is published as attributes with the exception of sensor data.
+Sensor data is published directly with mqtt_publish_sec and given MQTT_TOPIC_TELEMETRY as a tpic
+
+
+*/
+
 #define VERSION                0x05040000  // 5.4.0
 
 enum log_t   {LOG_LEVEL_NONE, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG_MORE, LOG_LEVEL_ALL};
@@ -469,7 +481,13 @@ void mqtt_publish(const char* topic, const char* data, boolean retained)
       mqtt_cmnd_publish += 8;
     }
   }
-  mqtt_publish_sec(topic, data, retained);
+
+  // Nikos START
+  if(strlen(data) < 5)
+    return;
+
+  mqtt_publish_sec(MQTT_TOPIC_ATTRIBUTES, data, retained); // Overrides topic completely
+  // Nikos END
 }
 
 void mqtt_publish(const char* topic, const char* data)
@@ -642,7 +660,7 @@ void mqtt_reconnect()
     addLog_P(LOG_LEVEL_INFO, PSTR("MQTT: Connected"));
     mqttcounter = 0;
     snprintf_P(svalue, sizeof(svalue), PSTR("Online"));
-    mqtt_publish(stopic, svalue, true);
+    //mqtt_publish(stopic, svalue, true);
     mqtt_connected();
   } else {
     snprintf_P(log, sizeof(log), PSTR("MQTT: Connect FAILED to %s:%d, rc %d. Retry in %d seconds"),
@@ -1893,8 +1911,22 @@ void state_mqttPresent(char* svalue, uint16_t ssvalue)
     }
     snprintf_P(svalue, ssvalue, PSTR("%s\"%s\""), svalue, getStateText(bitRead(power, i)));
   }
-  snprintf_P(svalue, ssvalue, PSTR("%s, \"Wifi\":{\"AP\":%d, \"SSID\":\"%s\", \"RSSI\":%d, \"APMac\":\"%s\"}}"),
-    svalue, sysCfg.sta_active +1, sysCfg.sta_ssid[sysCfg.sta_active], WIFI_getRSSIasQuality(WiFi.RSSI()), WiFi.BSSIDstr().c_str());
+  // Nikos uncomment
+  // snprintf_P(svalue, ssvalue, PSTR("%s, \"Wifi\":{\"AP\":%d, \"SSID\":\"%s\", \"RSSI\":%d, \"APMac\":\"%s\"}}"),
+  // svalue, sysCfg.sta_active +1, sysCfg.sta_ssid[sysCfg.sta_active], WIFI_getRSSIasQuality(WiFi.RSSI()), WiFi.BSSIDstr().c_str());
+  
+  // Nikos START
+  String str_mac = WiFi.BSSIDstr();
+  for(int i = 0; i < str_mac.length(); ++i)
+  {
+    if(str_mac[i] == ':')
+      str_mac[i] = '-';
+  }
+
+  snprintf_P(svalue, ssvalue, PSTR("%s, \"WifiAP\": \"%d\", \"WifiSSID\": \"%s\",\"WifiRSSI\": \"%d\", \"WifiAPMac\": \"%s\"}"),
+  svalue, sysCfg.sta_active +1, sysCfg.sta_ssid[sysCfg.sta_active], WIFI_getRSSIasQuality(WiFi.RSSI()), str_mac.c_str());
+
+  // Nikos END
 }
 
 void sensors_mqttPresent(char* svalue, uint16_t ssvalue, uint8_t* djson)
@@ -1946,10 +1978,14 @@ void sensors_mqttPresent(char* svalue, uint16_t ssvalue, uint8_t* djson)
 #endif  // USE_BH1750
   }
 #endif  // USE_I2C
+
+  // Nikos uncomment
+  /*
   if (strstr_P(svalue, PSTR("Temperature"))) {
     snprintf_P(svalue, ssvalue, PSTR("%s, \"TempUnit\":\"%c\""), svalue, tempUnit());
   }
   snprintf_P(svalue, ssvalue, PSTR("%s}"), svalue);
+  */
 }
 
 /********************************************************************************************/
@@ -2040,13 +2076,22 @@ void every_second()
 
       svalue[0] = '\0';
       state_mqttPresent(svalue, sizeof(svalue));
-      mqtt_publish_topic_P(2, PSTR("STATE"), svalue);
+
+      // Nikos uncomment
+      //mqtt_publish_topic_P(2, PSTR("STATE"), svalue);
+      // Nikos START
+      mqtt_publish_sec(MQTT_TOPIC_ATTRIBUTES, svalue, false);
+      // Nikos END
 
       uint8_t djson = 0;
       svalue[0] = '\0';
       sensors_mqttPresent(svalue, sizeof(svalue), &djson);
       if (djson) {
-        mqtt_publish_topic_P(2, PSTR("SENSOR"), svalue, sysCfg.flag.mqtt_sensor_retain);
+        // Nikos uncomment
+        //mqtt_publish_topic_P(2, PSTR("SENSOR"), svalue, sysCfg.flag.mqtt_sensor_retain);
+        // Nikos START
+        mqtt_publish_sec(MQTT_TOPIC_TELEMETRY, svalue, sysCfg.flag.mqtt_sensor_retain);
+        // Nikos END
       }
 
       if (hlw_flg) {

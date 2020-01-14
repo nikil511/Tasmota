@@ -231,7 +231,13 @@ void dht_mqttPresent(char* svalue, uint16_t ssvalue, uint8_t* djson)
       dtostrf(h, 1, sysCfg.flag.humidity_resolution, stemp2);
 //      snprintf_P(svalue, ssvalue, PSTR("%s, \"%s\":{\"Temperature\":%s, \"Humidity\":%s}"),
 //        svalue, dhtstype, stemp1, stemp2);
-      snprintf_P(svalue, ssvalue, JSON_SNS_TEMPHUM, svalue, dht[i].stype, stemp1, stemp2);
+
+      // Nikos uncomment
+      //snprintf_P(svalue, ssvalue, JSON_SNS_TEMPHUM, svalue, dht[i].stype, stemp1, stemp2);
+      // Nikos START
+      snprintf_P(svalue, ssvalue, "{\"Temperature\":%s, \"Humidity\":%s}", stemp1, stemp2);
+      // Nikos END
+
       *djson = 1;
 #ifdef USE_DOMOTICZ
       if (!dsxflg) {

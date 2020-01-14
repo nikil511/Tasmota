@@ -787,7 +787,7 @@ String getDateTime()
   // "2017-03-07T11:08:02" - ISO8601:2004
   char dt[21];
   
-  snprintf_P(dt, sizeof(dt), PSTR("%04d-%02d-%02dT%02d:%02d:%02d"),
+  snprintf_P(dt, sizeof(dt), PSTR("%04d/%02d/%02dT%02d.%02d.%02d"),
     rtcTime.Year, rtcTime.Month, rtcTime.Day, rtcTime.Hour, rtcTime.Minute, rtcTime.Second);
   return String(dt);
 }
